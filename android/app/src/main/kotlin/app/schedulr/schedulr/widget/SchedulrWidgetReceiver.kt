@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.text.TextUtils
 import android.view.View
 import android.widget.RemoteViews
 import app.schedulr.schedulr.MainActivity
@@ -116,7 +115,10 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
         options: Bundle?,
     ): WidgetSnapshot {
         val resolvedOptions = options ?: manager.getAppWidgetOptions(widgetId)
-        val compact = isCompact(resolvedOptions)
+        val plan = WidgetLayoutPolicy.plan(
+            resolvedOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0),
+            resolvedOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0),
+        )
         val snapshot = try {
             val data = HomeWidgetPlugin.getData(context)
             val binding = WidgetInstanceStore(context).readBinding(widgetId)
@@ -132,15 +134,19 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
         }
         val views = RemoteViews(
             context.packageName,
-            if (compact) R.layout.schedulr_widget_compact else R.layout.schedulr_widget_medium,
+            if (plan.mode == WidgetLayoutMode.MEDIUM) {
+                R.layout.schedulr_widget_medium
+            } else {
+                R.layout.schedulr_widget_compact
+            },
         )
         views.setOnClickPendingIntent(R.id.widget_container, openAppPendingIntent(context, widgetId))
-        bindSnapshot(views, snapshot, compact)
+        bindSnapshot(views, snapshot, plan)
         manager.updateAppWidget(widgetId, views)
         return snapshot
     }
 
-    private fun bindSnapshot(views: RemoteViews, snapshot: WidgetSnapshot, compact: Boolean) {
+    private fun bindSnapshot(views: RemoteViews, snapshot: WidgetSnapshot, plan: WidgetLayoutPlan) {
         views.setTextViewText(R.id.widget_timetable_name, snapshot.timetableName.ifBlank { "Schedulr" })
         views.setTextViewText(
             R.id.widget_date,
@@ -189,7 +195,7 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
                     WidgetHeroSource.NONE ->
                         bindHeroMessage(views, "下一节", "今天没有更多课程", "享受今天的空闲时间")
                 }
-                bindRows(views, snapshot.today, compact)
+                bindRows(views, snapshot.today, plan.maxRows)
             }
         }
     }
@@ -220,15 +226,20 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
     ) {
         views.setTextViewText(R.id.widget_next_label, label)
         views.setTextViewText(R.id.widget_next_name, course?.name ?: emptyName)
-        val location = course?.location?.trim().orEmpty()
-        if (location.isNotEmpty()) {
-            views.setViewVisibility(R.id.widget_next_location, View.VISIBLE)
-            views.setTextViewText(R.id.widget_next_location, location)
-        } else {
-            views.setViewVisibility(R.id.widget_next_location, View.GONE)
-        }
+        bindLocation(views, R.id.widget_next_location, course?.location.orEmpty())
         val support = course?.let { heroSupport(it) } ?: emptyDetail
         bindSupportLine(views, support.ifBlank { null })
+    }
+
+    /** The classroom line is either bound with text or collapsed, never left stale. */
+    private fun bindLocation(views: RemoteViews, viewId: Int, location: String) {
+        val trimmed = location.trim()
+        if (trimmed.isEmpty()) {
+            views.setViewVisibility(viewId, View.GONE)
+        } else {
+            views.setViewVisibility(viewId, View.VISIBLE)
+            views.setTextViewText(viewId, trimmed)
+        }
     }
 
     private fun bindSupportLine(views: RemoteViews, detail: String?) {
@@ -240,26 +251,20 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
         }
     }
 
-    private fun bindRows(views: RemoteViews, courses: List<WidgetCourse>, compact: Boolean) {
-        val rows = listOf(
-            Triple(R.id.widget_course_1, R.id.widget_course_name_1, R.id.widget_course_detail_1),
-            Triple(R.id.widget_course_2, R.id.widget_course_name_2, R.id.widget_course_detail_2),
-            Triple(R.id.widget_course_3, R.id.widget_course_name_3, R.id.widget_course_detail_3),
-        )
-        rows.forEachIndexed { index, ids ->
-            val visible = index < courses.size && (!compact || index < 2)
-            views.setViewVisibility(ids.first, if (visible) View.VISIBLE else View.GONE)
-            if (visible) {
-                val course = courses[index]
-                views.setTextViewText(ids.second, course.name)
-                views.setTextViewText(ids.third, detail(course, compact))
-            }
+    private fun bindRows(views: RemoteViews, courses: List<WidgetCourse>, maxRows: Int) {
+        ROW_IDS.forEachIndexed { index, ids ->
+            val visible = index < courses.size && index < maxRows
+            views.setViewVisibility(ids.container, if (visible) View.VISIBLE else View.GONE)
+            if (!visible) return@forEachIndexed
+            val course = courses[index]
+            views.setTextViewText(ids.name, course.name)
+            bindLocation(views, ids.location, course.location)
+            views.setTextViewText(ids.detail, detail(course))
         }
     }
 
     private fun hideRows(views: RemoteViews) {
-        listOf(R.id.widget_course_1, R.id.widget_course_2, R.id.widget_course_3)
-            .forEach { views.setViewVisibility(it, View.GONE) }
+        ROW_IDS.forEach { views.setViewVisibility(it.container, View.GONE) }
     }
 
     /** Small support line under the hero classroom: time and teacher only. */
@@ -267,20 +272,10 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
         listOf(timeText(course), course.teacher.takeIf { it.isNotBlank() })
             .filterNotNull().filter { it.isNotBlank() }.joinToString(" · ")
 
-    /** Row detail keeps time, classroom and teacher together in the small line. */
-    private fun detail(course: WidgetCourse, compact: Boolean): String {
-        val location = course.location.trim().takeIf { it.isNotBlank() }?.let {
-            val limit = if (compact) 14 else 28
-            TextUtils.ellipsize(
-                it,
-                android.text.TextPaint().apply { textSize = 14f },
-                limit.toFloat(),
-                TextUtils.TruncateAt.END,
-            ).toString()
-        }
-        return listOf(timeText(course), location, course.teacher.takeIf { it.isNotBlank() })
+    /** Row support line: time and teacher; the classroom has its own highlighted line. */
+    private fun detail(course: WidgetCourse): String =
+        listOf(timeText(course), course.teacher.takeIf { it.isNotBlank() })
             .filterNotNull().filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "时间待定" }
-    }
 
     private fun timeText(course: WidgetCourse): String = course.time.ifBlank {
         when {
@@ -298,17 +293,39 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
             Uri.parse("schedulr://home?homeWidget=1&appWidgetId=$widgetId"),
         )
 
-    private fun isCompact(options: Bundle): Boolean {
-        val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
-        val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-        return (width > 0 && (width < 250 || height < 140)) ||
-            (width == 0 && height == 0)
-    }
+    private data class CourseRowIds(
+        val container: Int,
+        val name: Int,
+        val location: Int,
+        val detail: Int,
+    )
 
     companion object {
         const val SNAPSHOT_KEY = "schedulr.widget.snapshot.v1"
         internal const val ACTION_REFRESH = WidgetLifecyclePolicy.ACTION_REFRESH
         private const val REFRESH_REQUEST_CODE = 1042
+
+        /** Both layouts expose the same three rows, each with its own classroom line. */
+        private val ROW_IDS = listOf(
+            CourseRowIds(
+                R.id.widget_course_1,
+                R.id.widget_course_name_1,
+                R.id.widget_course_location_1,
+                R.id.widget_course_detail_1,
+            ),
+            CourseRowIds(
+                R.id.widget_course_2,
+                R.id.widget_course_name_2,
+                R.id.widget_course_location_2,
+                R.id.widget_course_detail_2,
+            ),
+            CourseRowIds(
+                R.id.widget_course_3,
+                R.id.widget_course_name_3,
+                R.id.widget_course_location_3,
+                R.id.widget_course_detail_3,
+            ),
+        )
 
         private fun refreshPendingIntent(context: Context): PendingIntent = PendingIntent.getBroadcast(
             context,

@@ -4,14 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/schedulr_widget_background"
-    android:padding="16dp">
+    android:padding="14dp">
 
     <LinearLayout
         android:id="@+id/widget_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingBottom="18dp"
+        android:paddingBottom="16dp"
         android:clickable="true"
         android:focusable="true">
 
@@ -29,7 +29,7 @@
             android:id="@+id/widget_next_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:maxLines="1"
             android:text="下一节"
             android:textColor="@color/widget_accent"
@@ -49,19 +49,27 @@
 
         <TextView
             android:id="@+id/widget_next_location"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="3dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/schedulr_widget_location_chip"
             android:ellipsize="end"
             android:maxLines="1"
+            android:maxWidth="200dp"
+            android:paddingStart="8dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="2dp"
             android:text="教室"
-            android:textColor="@color/widget_secondary"
-            android:textSize="14sp" />
+            android:textColor="@color/widget_location_text"
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/widget_next_detail"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:text="08:00–09:40 · 教师"
@@ -72,7 +80,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="5dp"
             android:orientation="vertical">
 
             <LinearLayout
@@ -81,7 +89,13 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:paddingTop="4dp">
-                <TextView android:id="@+id/widget_course_name_1" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:textColor="@color/widget_primary" android:textSize="12sp" android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView android:id="@+id/widget_course_name_1" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:maxLines="1" android:textColor="@color/widget_primary" android:textSize="12sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/widget_course_location_1" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:ellipsize="end" android:maxLines="1" android:maxWidth="88dp" android:textColor="@color/widget_accent" android:textSize="11sp" android:textStyle="bold" />
+                </LinearLayout>
                 <TextView android:id="@+id/widget_course_detail_1" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:textColor="@color/widget_secondary" android:textSize="10sp" />
             </LinearLayout>
 
@@ -91,7 +105,13 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:paddingTop="5dp">
-                <TextView android:id="@+id/widget_course_name_2" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:textColor="@color/widget_primary" android:textSize="12sp" android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView android:id="@+id/widget_course_name_2" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:maxLines="1" android:textColor="@color/widget_primary" android:textSize="12sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/widget_course_location_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:ellipsize="end" android:maxLines="1" android:maxWidth="88dp" android:textColor="@color/widget_accent" android:textSize="11sp" android:textStyle="bold" />
+                </LinearLayout>
                 <TextView android:id="@+id/widget_course_detail_2" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:textColor="@color/widget_secondary" android:textSize="10sp" />
             </LinearLayout>
 
@@ -101,7 +121,13 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:paddingTop="5dp">
-                <TextView android:id="@+id/widget_course_name_3" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:textColor="@color/widget_primary" android:textSize="12sp" android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView android:id="@+id/widget_course_name_3" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:ellipsize="end" android:maxLines="1" android:textColor="@color/widget_primary" android:textSize="12sp" android:textStyle="bold" />
+                    <TextView android:id="@+id/widget_course_location_3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp" android:ellipsize="end" android:maxLines="1" android:maxWidth="88dp" android:textColor="@color/widget_accent" android:textSize="11sp" android:textStyle="bold" />
+                </LinearLayout>
                 <TextView android:id="@+id/widget_course_detail_3" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:textColor="@color/widget_secondary" android:textSize="10sp" />
             </LinearLayout>
         </LinearLayout>

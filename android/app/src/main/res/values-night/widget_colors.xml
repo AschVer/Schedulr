@@ -6,4 +6,8 @@
     <color name="widget_accent">#FFD0BCFF</color>
     <color name="widget_outline">#FF49454F</color>
     <color name="widget_divider">#FF49454F</color>
+    <!-- Classroom highlight: light accent fill with dark text keeps contrast in dark mode. -->
+    <color name="widget_location_container">#FFD0BCFF</color>
+    <color name="widget_location_text">#FF2B2153</color>
+    <color name="widget_location_outline">#FFB9A9E8</color>
 </resources>

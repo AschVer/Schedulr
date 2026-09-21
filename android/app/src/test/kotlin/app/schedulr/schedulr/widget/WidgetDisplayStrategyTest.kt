@@ -51,4 +51,45 @@ class WidgetDisplayStrategyTest {
         assertEquals(WidgetHeroSource.TOMORROW_EMPTY, WidgetDisplayStrategy.hero(empty).source)
         assertEquals(WidgetHeroSource.TOMORROW_OUTSIDE, WidgetDisplayStrategy.hero(outside).source)
     }
+
+    @Test
+    fun wideShortSlotKeepsFlexibleCompactLayout() {
+        // The widget's own 4x2 default: the tall medium layout overflows this slot.
+        val plan = WidgetLayoutPolicy.plan(widthDp = 260, heightDp = 150)
+
+        assertEquals(WidgetLayoutMode.COMPACT, plan.mode)
+        assertEquals(1, plan.maxRows)
+    }
+
+    @Test
+    fun narrowShortSlotUsesCompactLayout() {
+        val plan = WidgetLayoutPolicy.plan(widthDp = 180, heightDp = 220)
+
+        assertEquals(WidgetLayoutMode.COMPACT, plan.mode)
+        assertEquals(2, plan.maxRows)
+    }
+
+    @Test
+    fun largeSlotUsesMediumLayoutWithThreeRows() {
+        val plan = WidgetLayoutPolicy.plan(widthDp = 320, heightDp = 420)
+
+        assertEquals(WidgetLayoutMode.MEDIUM, plan.mode)
+        assertEquals(3, plan.maxRows)
+    }
+
+    @Test
+    fun unknownSlotBeforeFirstLayoutPassUsesCompactLayout() {
+        val plan = WidgetLayoutPolicy.plan(widthDp = 0, heightDp = 0)
+
+        assertEquals(WidgetLayoutMode.COMPACT, plan.mode)
+        assertEquals(2, plan.maxRows)
+    }
+
+    @Test
+    fun tallCompactSlotShowsThreeRows() {
+        val plan = WidgetLayoutPolicy.plan(widthDp = 180, heightDp = 320)
+
+        assertEquals(WidgetLayoutMode.COMPACT, plan.mode)
+        assertEquals(3, plan.maxRows)
+    }
 }

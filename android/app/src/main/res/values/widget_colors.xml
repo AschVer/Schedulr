@@ -6,4 +6,8 @@
     <color name="widget_accent">#FF6750A4</color>
     <color name="widget_outline">#FFE5E0EA</color>
     <color name="widget_divider">#FFE5E0EA</color>
+    <!-- Classroom highlight: filled accent chip so the room stands out from body text. -->
+    <color name="widget_location_container">#FF6750A4</color>
+    <color name="widget_location_text">#FFFFFFFF</color>
+    <color name="widget_location_outline">#FF54418F</color>
 </resources>
