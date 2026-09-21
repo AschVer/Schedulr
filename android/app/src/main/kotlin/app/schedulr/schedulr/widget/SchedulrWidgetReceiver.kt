@@ -150,68 +150,93 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
 
         when {
             snapshot.isCorrupt -> {
-                views.setTextViewText(R.id.widget_next_label, "暂时无法读取")
-                views.setTextViewText(R.id.widget_next_name, "课表数据格式有误")
-                views.setTextViewText(R.id.widget_next_detail, "打开应用后刷新")
+                bindHeroMessage(views, "暂时无法读取", "课表数据格式有误", "打开应用后刷新")
                 hideRows(views)
             }
             snapshot.state == WidgetSnapshot.STATE_OUTSIDE -> {
-                views.setTextViewText(R.id.widget_next_label, "当前不在教学周")
-                views.setTextViewText(R.id.widget_next_name, "查看学期设置")
-                views.setTextViewText(R.id.widget_next_detail, "点击打开 Schedulr")
+                bindHeroMessage(views, "当前不在教学周", "查看学期设置", "点击打开 Schedulr")
                 hideRows(views)
             }
             snapshot.isStale -> {
-                views.setTextViewText(R.id.widget_next_label, "数据已过期")
-                views.setTextViewText(R.id.widget_next_name, "请打开应用更新课表")
-                views.setTextViewText(R.id.widget_next_detail, "")
+                bindHeroMessage(views, "数据已过期", "请打开应用更新课表", null)
                 hideRows(views)
             }
             snapshot.state == WidgetSnapshot.STATE_EMPTY -> {
-                views.setTextViewText(R.id.widget_next_label, "暂无课表")
-                views.setTextViewText(R.id.widget_next_name, "先导入一份课表吧")
-                views.setTextViewText(R.id.widget_next_detail, "点击打开 Schedulr")
+                bindHeroMessage(views, "暂无课表", "先导入一份课表吧", "点击打开 Schedulr")
                 hideRows(views)
             }
             else -> {
                 val hero = WidgetDisplayStrategy.hero(snapshot)
                 when (hero.source) {
-                    WidgetHeroSource.TODAY -> {
-                        val next = hero.course
-                        views.setTextViewText(R.id.widget_next_label, if (next?.ongoing == true) "正在上课" else "下一节")
-                        views.setTextViewText(R.id.widget_next_name, next?.name ?: "今天没有更多课程")
-                        views.setTextViewText(
-                            R.id.widget_next_detail,
-                            next?.let { detail(it, compact) } ?: "享受今天的空闲时间",
-                        )
-                    }
-                    WidgetHeroSource.TOMORROW -> {
-                        val next = hero.course
-                        views.setTextViewText(R.id.widget_next_label, "明天第一节")
-                        views.setTextViewText(R.id.widget_next_name, next?.name ?: "明天没有课程")
-                        views.setTextViewText(
-                            R.id.widget_next_detail,
-                            next?.let { detail(it, compact) } ?: "好好休息",
-                        )
-                    }
-                    WidgetHeroSource.TOMORROW_EMPTY -> {
-                        views.setTextViewText(R.id.widget_next_label, "明天无课")
-                        views.setTextViewText(R.id.widget_next_name, "好好休息")
-                        views.setTextViewText(R.id.widget_next_detail, "")
-                    }
-                    WidgetHeroSource.TOMORROW_OUTSIDE -> {
-                        views.setTextViewText(R.id.widget_next_label, "明天不在教学周")
-                        views.setTextViewText(R.id.widget_next_name, "好好休息")
-                        views.setTextViewText(R.id.widget_next_detail, "")
-                    }
-                    WidgetHeroSource.NONE -> {
-                        views.setTextViewText(R.id.widget_next_label, "下一节")
-                        views.setTextViewText(R.id.widget_next_name, "今天没有更多课程")
-                        views.setTextViewText(R.id.widget_next_detail, "享受今天的空闲时间")
-                    }
+                    WidgetHeroSource.TODAY -> bindHeroCourse(
+                        views,
+                        if (hero.course?.ongoing == true) "正在上课" else "下一节",
+                        hero.course,
+                        "今天没有更多课程",
+                        "享受今天的空闲时间",
+                    )
+                    WidgetHeroSource.TOMORROW -> bindHeroCourse(
+                        views,
+                        "明天第一节",
+                        hero.course,
+                        "明天没有课程",
+                        "好好休息",
+                    )
+                    WidgetHeroSource.TOMORROW_EMPTY ->
+                        bindHeroMessage(views, "明天无课", "好好休息", null)
+                    WidgetHeroSource.TOMORROW_OUTSIDE ->
+                        bindHeroMessage(views, "明天不在教学周", "好好休息", null)
+                    WidgetHeroSource.NONE ->
+                        bindHeroMessage(views, "下一节", "今天没有更多课程", "享受今天的空闲时间")
                 }
                 bindRows(views, snapshot.today, compact)
             }
+        }
+    }
+
+    /** Hero card for status/empty states: no classroom line is shown. */
+    private fun bindHeroMessage(
+        views: RemoteViews,
+        label: String,
+        name: String,
+        detail: String?,
+    ) {
+        views.setTextViewText(R.id.widget_next_label, label)
+        views.setTextViewText(R.id.widget_next_name, name)
+        views.setViewVisibility(R.id.widget_next_location, View.GONE)
+        bindSupportLine(views, detail)
+    }
+
+    /**
+     * Hero card for a real course: course name is the largest text, classroom is
+     * the second-largest standalone line, and time/teacher stay in the small line.
+     */
+    private fun bindHeroCourse(
+        views: RemoteViews,
+        label: String,
+        course: WidgetCourse?,
+        emptyName: String,
+        emptyDetail: String,
+    ) {
+        views.setTextViewText(R.id.widget_next_label, label)
+        views.setTextViewText(R.id.widget_next_name, course?.name ?: emptyName)
+        val location = course?.location?.trim().orEmpty()
+        if (location.isNotEmpty()) {
+            views.setViewVisibility(R.id.widget_next_location, View.VISIBLE)
+            views.setTextViewText(R.id.widget_next_location, location)
+        } else {
+            views.setViewVisibility(R.id.widget_next_location, View.GONE)
+        }
+        val support = course?.let { heroSupport(it) } ?: emptyDetail
+        bindSupportLine(views, support.ifBlank { null })
+    }
+
+    private fun bindSupportLine(views: RemoteViews, detail: String?) {
+        if (detail.isNullOrBlank()) {
+            views.setViewVisibility(R.id.widget_next_detail, View.GONE)
+        } else {
+            views.setViewVisibility(R.id.widget_next_detail, View.VISIBLE)
+            views.setTextViewText(R.id.widget_next_detail, detail)
         }
     }
 
@@ -237,15 +262,13 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
             .forEach { views.setViewVisibility(it, View.GONE) }
     }
 
+    /** Small support line under the hero classroom: time and teacher only. */
+    private fun heroSupport(course: WidgetCourse): String =
+        listOf(timeText(course), course.teacher.takeIf { it.isNotBlank() })
+            .filterNotNull().filter { it.isNotBlank() }.joinToString(" · ")
+
+    /** Row detail keeps time, classroom and teacher together in the small line. */
     private fun detail(course: WidgetCourse, compact: Boolean): String {
-        val time = course.time.ifBlank {
-            when {
-                course.startPeriod != null && course.endPeriod != null ->
-                    if (course.startPeriod == course.endPeriod) "第${course.startPeriod}节" else "第${course.startPeriod}–${course.endPeriod}节"
-                course.startPeriod != null -> "第${course.startPeriod}节"
-                else -> ""
-            }
-        }
         val location = course.location.trim().takeIf { it.isNotBlank() }?.let {
             val limit = if (compact) 14 else 28
             TextUtils.ellipsize(
@@ -255,8 +278,17 @@ class SchedulrWidgetReceiver : AppWidgetProvider() {
                 TextUtils.TruncateAt.END,
             ).toString()
         }
-        return listOf(time, location, course.teacher.takeIf { it.isNotBlank() })
+        return listOf(timeText(course), location, course.teacher.takeIf { it.isNotBlank() })
             .filterNotNull().filter { it.isNotBlank() }.joinToString(" · ").ifBlank { "时间待定" }
+    }
+
+    private fun timeText(course: WidgetCourse): String = course.time.ifBlank {
+        when {
+            course.startPeriod != null && course.endPeriod != null ->
+                if (course.startPeriod == course.endPeriod) "第${course.startPeriod}节" else "第${course.startPeriod}–${course.endPeriod}节"
+            course.startPeriod != null -> "第${course.startPeriod}节"
+            else -> ""
+        }
     }
 
     private fun openAppPendingIntent(context: Context, widgetId: Int): PendingIntent =

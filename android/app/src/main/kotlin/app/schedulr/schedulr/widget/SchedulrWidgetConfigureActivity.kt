@@ -3,10 +3,14 @@ package app.schedulr.schedulr.widget
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.view.WindowInsets
 import android.widget.ArrayAdapter
 import android.widget.ListView
 import android.widget.Toast
+import app.schedulr.schedulr.R
 import es.antonborri.home_widget.HomeWidgetPlugin
 import org.json.JSONArray
 import org.json.JSONObject
@@ -33,11 +37,17 @@ class SchedulrWidgetConfigureActivity : Activity() {
             return
         }
 
+        setContentView(R.layout.schedulr_widget_configure)
+        // The configure activity uses a NoTitleBar theme and runs edge-to-edge on
+        // targetSdk 35+. Apply status/navigation bar insets as padding so the first
+        // timetable entry is never drawn underneath a tall cutout status bar.
+        applySystemBarInsets(findViewById(R.id.widget_configure_root))
+
         val labels = entries.map { "${it.name} · ${it.semesterName}" }.toTypedArray()
-        val list = ListView(this).apply {
+        val list = findViewById<ListView>(R.id.widget_configure_list).apply {
             adapter = ArrayAdapter(
                 this@SchedulrWidgetConfigureActivity,
-                android.R.layout.simple_list_item_single_choice,
+                R.layout.schedulr_widget_configure_item,
                 labels,
             )
             choiceMode = ListView.CHOICE_MODE_SINGLE
@@ -47,8 +57,37 @@ class SchedulrWidgetConfigureActivity : Activity() {
             if (selected >= 0) setItemChecked(selected, true)
             setOnItemClickListener { _, _, position, _ -> finishWith(entries[position].id) }
         }
-        setContentView(list)
-        title = "选择课表"
+        list.requestFocus()
+    }
+
+    private fun applySystemBarInsets(root: View) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) return
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            val left: Int
+            val top: Int
+            val right: Int
+            val bottom: Int
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val bars = insets.getInsets(
+                    WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars(),
+                )
+                left = bars.left
+                top = bars.top
+                right = bars.right
+                bottom = bars.bottom
+            } else {
+                @Suppress("DEPRECATION")
+                left = insets.systemWindowInsetLeft
+                @Suppress("DEPRECATION")
+                top = insets.systemWindowInsetTop
+                @Suppress("DEPRECATION")
+                right = insets.systemWindowInsetRight
+                @Suppress("DEPRECATION")
+                bottom = insets.systemWindowInsetBottom
+            }
+            view.setPadding(left, top, right, bottom)
+            insets
+        }
     }
 
     private fun finishWith(timetableId: String) {
