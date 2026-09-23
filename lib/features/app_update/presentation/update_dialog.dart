@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'data/app_update_service.dart';
-import 'data/update_manifest.dart';
+import '../data/app_update_service.dart';
+import '../data/update_manifest.dart';
 
 /// Drives the whole update flow inside one dialog:
 /// checking -> found -> downloading (progress) -> open installer.
