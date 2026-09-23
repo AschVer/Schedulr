@@ -53,6 +53,8 @@ dependencies:
     sdk: flutter
   webview_flutter: ^4.14.1
   home_widget: ^0.9.4
+  package_info_plus: ^8.3.0
+  open_filex: ^4.7.0
 
 dev_dependencies:
   flutter_test:

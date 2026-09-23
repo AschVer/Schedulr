@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- getTemporaryDirectory() on Android maps to the app cache dir, where the
+         in-app updater stores the downloaded APK before handing it to the installer. -->
+    <cache-path name="cache" path="." />
+    <external-cache-path name="external_cache" path="." />
+    <files-path name="files" path="." />
+</paths>

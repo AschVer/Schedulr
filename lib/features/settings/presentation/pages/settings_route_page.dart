@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../../core/platform/adaptive_ui.dart';
+import '../../../app_update/data/providers.dart';
+import '../../../app_update/presentation/update_dialog.dart';
 import '../../../desktop_widget/widget_providers.dart';
 import '../../../desktop_widget/widget_publisher.dart';
 import '../../../import_timetable/data/providers.dart' as import_providers;
@@ -46,6 +48,13 @@ class SettingsRoutePage extends ConsumerWidget {
           repository: ref.read(timetableRepositoryProvider),
           bridge: ref.read(widgetStorageBridgeProvider),
         ).publishAll(now);
+      },
+      onCheckUpdate: () async {
+        await showAppUpdateDialog(
+          context,
+          ref.read(appUpdateServiceProvider),
+          showUpToDate: true,
+        );
       },
       onClearAllData: () async {
         final confirmed = await showAdaptiveConfirmationDialog(

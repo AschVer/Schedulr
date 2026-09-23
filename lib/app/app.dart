@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:home_widget/home_widget.dart';
 
+import '../features/app_update/data/providers.dart';
+import '../features/app_update/presentation/update_dialog.dart';
 import '../features/desktop_widget/widget_providers.dart';
 import '../features/desktop_widget/widget_publisher.dart';
 import '../features/timetable/data/providers.dart';
@@ -64,6 +66,22 @@ class _SchedulrAppState extends ConsumerState<SchedulrApp> {
           );
       unawaited(_handleInitialWidgetLaunch());
       _scheduleWidgetPublish();
+    }
+    // Best-effort, non-blocking OTA check: only prompts when a newer build exists.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybePromptUpdate());
+  }
+
+  Future<void> _maybePromptUpdate() async {
+    try {
+      final service = ref.read(appUpdateServiceProvider);
+      final manifest = await service.checkForUpdate();
+      if (manifest == null) return;
+      if (_router.state.uri.path == '/onboarding') return;
+      final context = _router.routerDelegate.navigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+      await showAppUpdateDialog(context, service);
+    } on Object {
+      // Launch must never be blocked by update-check network failures.
     }
   }
 

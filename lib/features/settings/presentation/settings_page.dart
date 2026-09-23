@@ -9,6 +9,7 @@ class SettingsPage extends StatelessWidget {
     required this.onDeleteSavedAccounts,
     required this.onClearAllData,
     required this.onRefreshWidget,
+    required this.onCheckUpdate,
     required this.savedAccountCount,
     super.key,
   });
@@ -18,6 +19,7 @@ class SettingsPage extends StatelessWidget {
   final Future<void> Function() onDeleteSavedAccounts;
   final Future<void> Function() onClearAllData;
   final Future<void> Function() onRefreshWidget;
+  final Future<void> Function() onCheckUpdate;
   final int savedAccountCount;
 
   @override
@@ -103,6 +105,14 @@ class SettingsPage extends StatelessWidget {
             ),
             subtitle: const Text('删除所有课程和学期，并重新进行首次设置。'),
             onTap: () async => onClearAllData(),
+          ),
+          const _SectionHeader('关于'),
+          ListTile(
+            leading: const Icon(Icons.system_update_alt_outlined),
+            title: const Text('检查更新'),
+            subtitle: const Text('从 GitHub 自动下载并安装最新测试版。'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => onCheckUpdate(),
           ),
           const AboutListTile(
             applicationName: '课程表',
