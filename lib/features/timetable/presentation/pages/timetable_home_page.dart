@@ -326,7 +326,7 @@ class _TimetableHomePageState extends ConsumerState<TimetableHomePage> {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                 child: LayoutBuilder(
                   builder: (context, constraints) => TimetableWeekPager(
                     timetable: value,
@@ -534,7 +534,7 @@ class _WeekSelector extends StatelessWidget {
     final start = dateForTeachingWeekday(semester, week, DateTime.monday);
     final end = dateForTeachingWeekday(semester, week, DateTime.sunday);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
           IconButton(

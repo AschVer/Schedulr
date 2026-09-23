@@ -11,7 +11,7 @@ import 'update_manifest.dart';
 
 /// Where the CI publishes the updater manifest (public GitHub Releases asset).
 const String kUpdateManifestUrl =
-    'https://github.com/AschVer/Schedulr/releases/download/latest-debug/update.json';
+    'https://github.com/AschVer/Schedulr/releases/download/latest/update.json';
 
 class AppUpdateException implements Exception {
   AppUpdateException(this.message);

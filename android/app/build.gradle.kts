@@ -53,11 +53,14 @@ android {
 
     buildTypes {
         release {
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
+            // Prefer the configured release keystore; fall back to the debug
+            // signing config so release builds are always installable (e.g. CI
+            // without release secrets). A debug-signed release APK still runs
+            // in AOT/release mode (no debug banner) and is fine for testing.
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
             } else {
-                // Unsigned/reproducible CI builds must not be mislabeled as release-signed.
-                signingConfig = null
+                signingConfigs.getByName("debug")
             }
         }
     }

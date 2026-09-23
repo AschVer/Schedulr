@@ -90,7 +90,7 @@ jobs:
           if [[ -n "${ANDROID_KEYSTORE_PATH:-}" ]]; then
             echo 'ANDROID_ARTIFACT_SIGNING=release' >> "$GITHUB_ENV"
           else
-            echo 'ANDROID_ARTIFACT_SIGNING=unsigned' >> "$GITHUB_ENV"
+            echo 'ANDROID_ARTIFACT_SIGNING=debug' >> "$GITHUB_ENV"
           fi
           printf 'Android artifact signing mode: %s\n' "${ANDROID_ARTIFACT_SIGNING:-unknown}"
 
@@ -98,10 +98,10 @@ jobs:
         run: |
           set -euo pipefail
           SAFE_TAG="${GITHUB_REF_NAME//\//-}"
-          if [[ "${ANDROID_ARTIFACT_SIGNING:-unsigned}" == "release" ]]; then
+          if [[ "${ANDROID_ARTIFACT_SIGNING:-debug}" == "release" ]]; then
             SUFFIX="android.apk"
           else
-            SUFFIX="android-unsigned.apk"
+            SUFFIX="android-debug-signed.apk"
           fi
           cp build/app/outputs/flutter-apk/app-release.apk "Schedulr-${SAFE_TAG}-${SUFFIX}"
 
@@ -112,151 +112,9 @@ jobs:
           path: Schedulr-*-android*.apk
           if-no-files-found: error
 
-  ios:
-    name: Build unsigned iOS IPA
-    runs-on: macos-latest
-    timeout-minutes: 45
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Verify iOS native integrations
-        run: |
-          python3 scripts/verify_ios_widget_project.py
-          python3 scripts/verify_ios_native_dialog_bridge.py
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: '3.47.1'
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate Flutter iOS build configuration
-        run: >-
-          flutter build ios --release --config-only --no-codesign
-          --build-number "$GITHUB_RUN_NUMBER"
-
-      - name: Assemble unsigned iOS app
-        run: |
-          set -euo pipefail
-          PACKAGE_ROOT="$PWD/build/ios/iphoneos"
-          RUNNER_APP="$PACKAGE_ROOT/Runner.app"
-          WIDGET_APPEX="$RUNNER_APP/PlugIns/SchedulrWidget.appex"
-          INTENT_APPEX="$RUNNER_APP/PlugIns/SchedulrIntentExtension.appex"
-          rm -rf "$PACKAGE_ROOT"
-
-          xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            CONFIGURATION_BUILD_DIR="$PACKAGE_ROOT" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            FLUTTER_BUILD_DIR="$PWD/build" \
-            build
-
-          test -d "$RUNNER_APP"
-          test -x "$RUNNER_APP/Runner"
-          test -s "$RUNNER_APP/Runner"
-          test -s "$RUNNER_APP/Frameworks/App.framework/App"
-          test -s "$RUNNER_APP/Frameworks/Flutter.framework/Flutter"
-          test -d "$RUNNER_APP/Frameworks/App.framework/flutter_assets"
-
-          if [[ ! -d "$WIDGET_APPEX" ]]; then
-            WIDGET_PRODUCT="$PACKAGE_ROOT/SchedulrWidget.appex"
-            test -d "$WIDGET_PRODUCT"
-            mkdir -p "$RUNNER_APP/PlugIns"
-            cp -R "$WIDGET_PRODUCT" "$WIDGET_APPEX"
-          fi
-          if [[ ! -d "$INTENT_APPEX" ]]; then
-            INTENT_PRODUCT="$PACKAGE_ROOT/SchedulrIntentExtension.appex"
-            test -d "$INTENT_PRODUCT"
-            mkdir -p "$RUNNER_APP/PlugIns"
-            cp -R "$INTENT_PRODUCT" "$INTENT_APPEX"
-          fi
-          test -x "$WIDGET_APPEX/SchedulrWidget"
-          test -d "$INTENT_APPEX"
-          test -x "$INTENT_APPEX/SchedulrIntentExtension"
-          find "$RUNNER_APP/PlugIns" -maxdepth 1 -name '*.appex' -print
-
-          APP_VERSION="$(grep -m1 '^version:' pubspec.yaml | cut -d' ' -f2 | tr -d '[:space:]')"
-          EXPECTED_SHORT_VERSION="${APP_VERSION%%+*}"
-          EXPECTED_BUILD_VERSION="$GITHUB_RUN_NUMBER"
-          test -n "$EXPECTED_SHORT_VERSION"
-          test -n "$EXPECTED_BUILD_VERSION"
-
-          set_or_add_plist_string() {
-            local plist="$1"
-            local key="$2"
-            local value="$3"
-            /usr/libexec/PlistBuddy -c "Set :$key $value" "$plist" 2>/dev/null || \
-              /usr/libexec/PlistBuddy -c "Add :$key string $value" "$plist"
-          }
-          set_or_add_plist_string "$RUNNER_APP/Info.plist" CFBundleShortVersionString "$EXPECTED_SHORT_VERSION"
-          set_or_add_plist_string "$RUNNER_APP/Info.plist" CFBundleVersion "$EXPECTED_BUILD_VERSION"
-          set_or_add_plist_string "$WIDGET_APPEX/Info.plist" CFBundleShortVersionString "$EXPECTED_SHORT_VERSION"
-          set_or_add_plist_string "$WIDGET_APPEX/Info.plist" CFBundleVersion "$EXPECTED_BUILD_VERSION"
-          set_or_add_plist_string "$INTENT_APPEX/Info.plist" CFBundleShortVersionString "$EXPECTED_SHORT_VERSION"
-          set_or_add_plist_string "$INTENT_APPEX/Info.plist" CFBundleVersion "$EXPECTED_BUILD_VERSION"
-
-          RUNNER_SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$RUNNER_APP/Info.plist")"
-          RUNNER_BUILD_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$RUNNER_APP/Info.plist")"
-          WIDGET_SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$WIDGET_APPEX/Info.plist")"
-          WIDGET_BUILD_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$WIDGET_APPEX/Info.plist")"
-          INTENT_SHORT_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INTENT_APPEX/Info.plist")"
-          INTENT_BUILD_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INTENT_APPEX/Info.plist")"
-
-          [[ "$RUNNER_SHORT_VERSION" == "$EXPECTED_SHORT_VERSION" ]]
-          [[ "$RUNNER_BUILD_VERSION" == "$EXPECTED_BUILD_VERSION" ]]
-          [[ "$RUNNER_SHORT_VERSION" == "$WIDGET_SHORT_VERSION" ]]
-          [[ "$RUNNER_BUILD_VERSION" == "$WIDGET_BUILD_VERSION" ]]
-          [[ "$RUNNER_SHORT_VERSION" == "$INTENT_SHORT_VERSION" ]]
-          [[ "$RUNNER_BUILD_VERSION" == "$INTENT_BUILD_VERSION" ]]
-
-          UNCOMPRESSED_KB="$(du -sk "$RUNNER_APP" | cut -f1)"
-          test "$UNCOMPRESSED_KB" -gt 10000
-          printf 'Complete Runner.app verified: %s (%s), %s KB\n' \
-            "$RUNNER_SHORT_VERSION" "$RUNNER_BUILD_VERSION" "$UNCOMPRESSED_KB"
-
-      - name: Package unsigned IPA
-        run: |
-          set -euo pipefail
-          SAFE_TAG="${GITHUB_REF_NAME//\//-}"
-          IPA="Schedulr-${SAFE_TAG}-ios-unsigned.ipa"
-          rm -rf Payload "$IPA"
-          mkdir -p Payload
-          ditto build/ios/iphoneos/Runner.app Payload/Runner.app
-          ditto -c -k --sequesterRsrc --keepParent Payload "$IPA"
-          unzip -tq "$IPA"
-          unzip -l "$IPA" | grep -q 'Payload/Runner.app/Runner'
-          unzip -l "$IPA" | grep -q 'Payload/Runner.app/Frameworks/App.framework/App'
-          unzip -l "$IPA" | grep -q 'Payload/Runner.app/Frameworks/Flutter.framework/Flutter'
-          unzip -l "$IPA" | grep -q 'Payload/Runner.app/PlugIns/SchedulrWidget.appex/SchedulrWidget'
-          unzip -l "$IPA" | grep -q 'Payload/Runner.app/PlugIns/SchedulrIntentExtension.appex/SchedulrIntentExtension'
-          IPA_BYTES="$(stat -f%z "$IPA")"
-          test "$IPA_BYTES" -gt 5000000
-          printf 'Unsigned IPA verified: %s bytes\n' "$IPA_BYTES"
-
-      - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-ipa
-          path: Schedulr-*-ios-unsigned.ipa
-          if-no-files-found: error
-
   release:
     name: Publish GitHub Release
-    needs: [android, ios]
+    needs: [android]
     runs-on: ubuntu-latest
 
     steps:
@@ -273,5 +131,4 @@ jobs:
           generate_release_notes: true
           files: dist/*
           body: |
-            Android APK：只有配置正式 keystore 时才是正式签名产物；未配置时文件名会标记为 `android-unsigned.apk`，需要安装前自行签名。
-            iOS IPA 当前是 unsigned 输入包，不是可直接安装的成品。安装前必须由同一 Apple Developer Team 分别签名 `SchedulrIntentExtension.appex`、`SchedulrWidget.appex` 和 `Runner.app`，并让三个目标授权 `group.app.schedulr.shared`；签名后的 IPA 可使用 `scripts/verify_signed_ios_widget_ipa.py` 检查。
+            Android release APK。配置正式 keystore 时为正式签名产物；未配置时使用 debug 签名（可直接安装，但仅建议用于测试）。
