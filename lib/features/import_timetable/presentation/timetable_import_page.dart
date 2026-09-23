@@ -369,6 +369,18 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
               savedAccount: account.isEmpty ? null : account,
               autoFetch:
                   widget.refreshMode && (canReuseSession || restoredCookie),
+              onClearSession: () async {
+                await (widget.clearWebViewCookies ??
+                    WebViewCookieManager().clearCookies)();
+                if (account.isNotEmpty) {
+                  await widget.bitcCookieStore?.clearBrowserSession();
+                  try {
+                    await widget.bitcCookieStore?.delete(account);
+                  } on Object {
+                    // A missing/stale snapshot must not block the clean re-login.
+                  }
+                }
+              },
               request: BitcTimetableWebRequest(
                 academicYearStart: protocolTerm.academicYear,
                 termCode: '${protocolTerm.term}',

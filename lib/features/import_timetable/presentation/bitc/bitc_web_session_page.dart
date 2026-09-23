@@ -13,12 +13,17 @@ class BitcWebSessionPage extends StatefulWidget {
     required this.request,
     this.savedAccount,
     this.autoFetch = false,
+    this.onClearSession,
     super.key,
   });
 
   final BitcTimetableWebRequest request;
   final String? savedAccount;
   final bool autoFetch;
+
+  /// Clears the WebView cookies and the persisted BITC session snapshot so the
+  /// user can re-authenticate from a clean slate. Wired by the caller.
+  final Future<void> Function()? onClearSession;
 
   @override
   State<BitcWebSessionPage> createState() => _BitcWebSessionPageState();
@@ -47,6 +52,19 @@ class _BitcWebSessionPageState extends State<BitcWebSessionPage> {
   bool _canFetch = false;
   bool _autoFetchAttempted = false;
   String? _message;
+  String? _gatewayError;
+  bool _isClearingSession = false;
+
+  /// Markers rendered by BITC's web-VPN gateway when it cannot route to the
+  ///教务 backend or its permission table is out of sync. The gateway returns
+  /// these as ordinary HTTP 200 HTML, so `onWebResourceError` never fires and
+  /// the page text is the only reliable signal.
+  static const _gatewayErrorMarkers = <String>[
+    '权限表不同步',
+    '站点访问异常',
+    'not found',
+    'site ',
+  ];
 
   @override
   void initState() {
@@ -83,6 +101,7 @@ class _BitcWebSessionPageState extends State<BitcWebSessionPage> {
           onPageStarted: (_) => setState(() {
             _isLoading = true;
             _message = null;
+            _gatewayError = null;
           }),
           onPageFinished: (url) {
             final uri = Uri.tryParse(url);
@@ -93,6 +112,7 @@ class _BitcWebSessionPageState extends State<BitcWebSessionPage> {
                   uri?.host == 'jwxt.vpn.bitc.edu.cn' &&
                   uri?.path.contains('xskbcx_cxXskbcxIndex.html') == true;
             });
+            unawaited(_detectGatewayError());
             if (widget.savedAccount != null &&
                 uri != null &&
                 _isAllowedHost(uri.host) &&
@@ -137,6 +157,71 @@ class _BitcWebSessionPageState extends State<BitcWebSessionPage> {
       await _controller.runJavaScript(buildBitcAccountPrefillScript(account));
     } on Object {
       // Login markup can change; the user can still enter the account manually.
+    }
+  }
+
+  /// Reads the rendered page text and recognizes BITC's web-VPN gateway error
+  /// pages (e.g. "权限表不同步" / "site ... not found"), which arrive as HTTP 200
+  /// and therefore bypass `onWebResourceError`.
+  Future<void> _detectGatewayError() async {
+    if (_canFetch) return;
+    String text;
+    try {
+      final result = await _controller.runJavaScriptReturningResult(
+        'document.body ? document.body.innerText : ""',
+      );
+      text = result is String ? result : '';
+    } on Object {
+      return;
+    }
+    if (!mounted) return;
+    if (_isGatewayErrorText(text)) {
+      setState(() {
+        _gatewayError = '学校 VPN 网关暂时无法访问教务系统，课表数据无法读取。'
+            '这通常是网关的会话/权限表临时不同步导致的，点按下方按钮清理登录态后重新登录一般即可恢复；'
+            '若仍失败，请稍后重试或确认校园网 / VPN 服务正常。';
+        _message = null;
+      });
+    }
+  }
+
+  bool _isGatewayErrorText(String text) {
+    if (text.isEmpty) return false;
+    final lower = text.toLowerCase();
+    return _gatewayErrorMarkers.any((marker) {
+      final needle = marker.toLowerCase();
+      return lower.contains(needle);
+    }) &&
+        // Avoid matching a normal timetable page that merely mentions a site.
+        !lower.contains('xskbcx') &&
+        !lower.contains('个人课表');
+  }
+
+  /// Clears the current login session (WebView cookies + persisted snapshot)
+  /// and reloads the entry so the user can authenticate from a clean slate —
+  /// the remedy the school's own error page recommends.
+  Future<void> _clearCookiesAndRelogin() async {
+    if (_isClearingSession || !mounted) return;
+    setState(() {
+      _isClearingSession = true;
+      _message = '正在清理登录态…';
+      _gatewayError = null;
+    });
+    try {
+      await (widget.onClearSession?.call() ??
+          WebViewCookieManager().clearCookies());
+      await _controller.clearCache();
+      if (!mounted) return;
+      setState(() {
+        _autoFetchAttempted = false;
+        _message = '登录态已清理，请在学校 IAM 页面重新登录。';
+      });
+      await _controller.loadRequest(_entryUri);
+    } on Object {
+      if (!mounted) return;
+      setState(() => _message = '清理登录态失败，请重新打开本页后重试。');
+    } finally {
+      if (mounted) setState(() => _isClearingSession = false);
     }
   }
 
@@ -211,6 +296,47 @@ class _BitcWebSessionPageState extends State<BitcWebSessionPage> {
             ),
             actions: const [SizedBox.shrink()],
           ),
+          if (_gatewayError case final gatewayError?)
+            Card(
+              margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '学校网关异常',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      gatewayError,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      key: const ValueKey('bitc-clear-session'),
+                      onPressed: _isClearingSession ? null : _clearCookiesAndRelogin,
+                      icon: _isClearingSession
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.delete_sweep_outlined),
+                      label: Text(
+                        _isClearingSession ? '正在清理…' : '清理登录态并重新登录',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (_message case final message?)
             Padding(
               padding: const EdgeInsets.all(12),
