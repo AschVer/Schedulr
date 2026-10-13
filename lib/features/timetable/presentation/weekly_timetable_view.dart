@@ -101,6 +101,9 @@ class WeeklyTimetableView extends StatefulWidget {
   static Key courseLocationKey(String sessionId) =>
       ValueKey<String>('course-location-$sessionId');
 
+  static Key courseTimeKey(String sessionId) =>
+      ValueKey<String>('course-time-$sessionId');
+
   final SemesterTimetable timetable;
   final int teachingWeek;
   final bool showWeekend;
@@ -502,6 +505,7 @@ class _WeeklyTimetableViewState extends State<WeeklyTimetableView> {
                           teachingWeek: widget.teachingWeek,
                           dayWidth: effectiveDayWidth,
                           metrics: metrics,
+                          periods: periods,
                           onTap: widget.onCourseTap,
                         ),
                   ],
@@ -729,6 +733,35 @@ class _ScheduledEntry {
 
   final CourseWithSessions courseWithSessions;
   final CourseSession session;
+}
+
+/// Returns the building-specific time label for the 3-4节 staggered lunch
+/// block, or null when no override applies (non-flexible period or unknown
+/// building).
+String? _flexibleTimeLabel(
+  List<_DisplayPeriod> periods,
+  int startRow,
+  int endRow,
+  String? location,
+) {
+  if (startRow >= periods.length || endRow >= periods.length) return null;
+  final startPeriod = periods[startRow];
+  final endPeriod = periods[endRow];
+  if (!startPeriod.hasTimes || !endPeriod.hasTimes) return null;
+
+  const resolver = FlexiblePeriodTimeResolver();
+  if (!resolver.hasOverrideFor(startPeriod.period, location) &&
+      !resolver.hasOverrideFor(endPeriod.period, location)) {
+    return null;
+  }
+
+  final startTime =
+      resolver.startTimeFor(startPeriod.period, location) ??
+      startPeriod.startTime!;
+  final endTime =
+      resolver.endTimeFor(endPeriod.period, location) ??
+      endPeriod.endTime!;
+  return '$startTime–$endTime';
 }
 
 List<_ScheduledEntry> _scheduledEntries({
@@ -1023,6 +1056,22 @@ void _growRowsForContent({
     if (compactLocation != null &&
         _fitsSingleLine(
           text: compactLocation,
+          style: metadataStyle,
+          textDirection: textDirection,
+          textScaler: textScaler,
+          maxWidth: contentWidth,
+        )) {
+      optionalMetadataHeight += metadataLineHeight;
+    }
+    final flexTime = _flexibleTimeLabel(
+      periods,
+      item.startRow,
+      item.endRow,
+      entry.session.location,
+    );
+    if (flexTime != null &&
+        _fitsSingleLine(
+          text: flexTime,
           style: metadataStyle,
           textDirection: textDirection,
           textScaler: textScaler,
@@ -1426,6 +1475,7 @@ class _CourseCardPositioned extends StatelessWidget {
     required this.teachingWeek,
     required this.dayWidth,
     required this.metrics,
+    required this.periods,
     required this.onTap,
   });
 
@@ -1433,6 +1483,7 @@ class _CourseCardPositioned extends StatelessWidget {
   final int teachingWeek;
   final double dayWidth;
   final _TimetableVerticalMetrics metrics;
+  final List<_DisplayPeriod> periods;
   final CourseSessionTapCallback? onTap;
 
   @override
@@ -1458,10 +1509,17 @@ class _CourseCardPositioned extends StatelessWidget {
     final teacher = course.teacher?.trim();
     final teacherLabel = teacher == null || teacher.isEmpty ? '教师未注明' : teacher;
     final compactLocation = compactLocationLabel(fullLocation);
+    final flexTime = _flexibleTimeLabel(
+      periods,
+      entry.startRow,
+      entry.endRow,
+      fullLocation,
+    );
     final weekdayLabel = _WeekdayHeader.labels[session.weekday - 1];
     final semanticsLabel =
         '${course.name}，$teacherLabel，$locationLabel，$weekdayLabel，'
-        '第${session.startPeriod}至${session.endPeriod}节，第$teachingWeek周';
+        '第${session.startPeriod}至${session.endPeriod}节，'
+        '${flexTime != null ? '$flexTime，' : ''}第$teachingWeek周';
     final top = metrics.periodTop(entry.startRow);
     final bottom = metrics.periodBottom(entry.endRow);
 
@@ -1541,6 +1599,19 @@ class _CourseCardPositioned extends StatelessWidget {
                       textScaler: textScaler,
                       maxWidth: contentWidth,
                     );
+                if (showLocation) {
+                  remainingHeight -= metadataLineHeight;
+                }
+                final showFlexTime =
+                    flexTime != null &&
+                    remainingHeight + 0.01 >= metadataLineHeight &&
+                    _fitsSingleLine(
+                      text: flexTime,
+                      style: metadataStyle,
+                      textDirection: Directionality.of(context),
+                      textScaler: textScaler,
+                      maxWidth: contentWidth,
+                    );
                 return Padding(
                   padding: EdgeInsets.all(padding),
                   child: MediaQuery.withClampedTextScaling(
@@ -1571,6 +1642,16 @@ class _CourseCardPositioned extends StatelessWidget {
                               session.id,
                             ),
                             compactLocation,
+                            softWrap: false,
+                            maxLines: 1,
+                            style: metadataStyle,
+                          ),
+                        if (showFlexTime)
+                          Text(
+                            key: WeeklyTimetableView.courseTimeKey(
+                              session.id,
+                            ),
+                            flexTime,
                             softWrap: false,
                             maxLines: 1,
                             style: metadataStyle,

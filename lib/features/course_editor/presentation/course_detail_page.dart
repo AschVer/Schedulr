@@ -270,7 +270,14 @@ class _SessionDetailCard extends StatelessWidget {
     if (start == null || end == null || start.startMinutes >= end.endMinutes) {
       return '$base · 具体时间未配置';
     }
-    return '$base · ${start.startTime}–${end.endTime}';
+    const resolver = FlexiblePeriodTimeResolver();
+    final startTime =
+        resolver.startTimeFor(session.startPeriod, session.location) ??
+        start.startTime;
+    final endTime =
+        resolver.endTimeFor(session.endPeriod, session.location) ??
+        end.endTime;
+    return '$base · $startTime–$endTime';
   }
 
   static String _weekdayName(int weekday) {

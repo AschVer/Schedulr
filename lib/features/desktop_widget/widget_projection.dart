@@ -1,5 +1,6 @@
 import 'package:schedulr/core/presentation/location_formatter.dart';
 import 'package:schedulr/core/time/teaching_calendar.dart';
+import 'package:schedulr/features/timetable/domain/flexible_period_time.dart';
 import 'package:schedulr/features/timetable/domain/semester_timetable.dart';
 
 import 'widget_snapshot.dart';
@@ -85,6 +86,15 @@ class WidgetSnapshotProjector {
         }
         final start = periods[session.startPeriod];
         final end = periods[session.endPeriod];
+        const resolver = FlexiblePeriodTimeResolver();
+        final startTime = start == null
+            ? null
+            : resolver.startTimeFor(session.startPeriod, session.location) ??
+                  start.startTime;
+        final endTime = end == null
+            ? null
+            : resolver.endTimeFor(session.endPeriod, session.location) ??
+                  end.endTime;
         courses.add(
           WidgetCourse(
             courseId: course.id,
@@ -92,9 +102,9 @@ class WidgetSnapshotProjector {
             courseName: course.name,
             teacher: _clean(course.teacher),
             location: compactLocationLabel(session.location),
-            time: start == null || end == null
+            time: startTime == null || endTime == null
                 ? null
-                : '${start.startTime}-${end.endTime}',
+                : '$startTime-$endTime',
             startPeriod: session.startPeriod,
             endPeriod: session.endPeriod,
             color: course.colorValue,
