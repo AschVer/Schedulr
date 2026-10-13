@@ -1,6 +1,7 @@
 /// Resolves building-specific period times for the staggered lunch schedule
 /// at BITC Dongba campus (北京信息职业技术学院东坝校区).
 ///
+///
 /// Periods 3-4 use staggered dismissal times by building:
 /// - Buildings 1, 4, 6: 10:10–11:40
 /// - Building 13 / 操场 (playground): 10:20–11:50
