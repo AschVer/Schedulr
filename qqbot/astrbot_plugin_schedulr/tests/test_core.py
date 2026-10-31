@@ -178,6 +178,18 @@ class BuildTimetableTest(unittest.TestCase):
         self.assertEqual(len(timetable.courses), 2)
         self.assertTrue(timetable.warnings)
 
+    def test_semester_start_uses_containing_monday(self):
+        timetable = build_timetable(
+            _payload(),
+            _periods(),
+            academic_year="2026-2027",
+            term=1,
+            now=NOW,
+            semester_start=date(2026, 9, 3),
+        )
+        self.assertEqual(timetable.start_date, date(2026, 8, 31))
+        self.assertEqual(timetable.week_for(date(2026, 10, 31)), 9)
+
 
 class QueryTest(unittest.TestCase):
     def test_parse(self):

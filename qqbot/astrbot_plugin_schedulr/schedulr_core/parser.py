@@ -282,6 +282,10 @@ def build_timetable(
     anchors = payload.get("rqazcList")
     current_week = _positive_int(payload.get("zs"))
     start_date = semester_start or infer_start_date(anchors, current_week)
+    if isinstance(start_date, date):
+        # A school "开学日期" can be any weekday; teaching weeks start on the
+        # Monday of that week (same rule as the Schedulr app).
+        start_date -= timedelta(days=start_date.isoweekday() - 1)
     max_week = max((max(course.weeks) for course in courses), default=1)
     effective_weeks = max(1, int(teaching_weeks), max_week)
 
