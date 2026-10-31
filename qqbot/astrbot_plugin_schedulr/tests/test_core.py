@@ -11,6 +11,7 @@ PLUGIN_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PLUGIN_DIR))
 
 from schedulr_core import (  # noqa: E402
+    CookieJar,
     Course,
     PeriodTime,
     Timetable,
@@ -222,6 +223,26 @@ class StoreTest(unittest.TestCase):
         self.assertEqual(loaded.start_date, timetable.start_date)
         self.assertEqual(len(loaded.courses), 2)
         self.assertEqual(loaded.fetched_at, timetable.fetched_at)
+
+
+class CookieJarTest(unittest.TestCase):
+    def test_sliding_cookie_update(self):
+        jar = CookieJar("_webvpn_key=old; JSESSIONID=abc")
+        self.assertEqual(jar.header(), "_webvpn_key=old; JSESSIONID=abc")
+        changed = jar.update_from_headers(
+            [
+                "_webvpn_key=new; Path=/; HttpOnly; Secure",
+                "webvpn_username=20263201236%7C123; Path=/",
+            ]
+        )
+        self.assertTrue(changed)
+        self.assertIn("_webvpn_key=new", jar.header())
+        self.assertIn("webvpn_username=", jar.header())
+
+    def test_deletion(self):
+        jar = CookieJar("a=1; b=2")
+        jar.update_from_headers(["a=; Max-Age=0; Path=/"])
+        self.assertEqual(jar.header(), "b=2")
 
 
 if __name__ == "__main__":

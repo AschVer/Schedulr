@@ -5,6 +5,8 @@ from .bitc_client import (
     BitcError,
     BitcGatewayError,
     BitcProtocolError,
+    CookieJar,
+    FetchResult,
     fetch_timetable,
     normalize_cookie,
 )
@@ -42,6 +44,8 @@ __all__ = [
     "BitcGatewayError",
     "BitcProtocolError",
     "Course",
+    "CookieJar",
+    "FetchResult",
     "PeriodTime",
     "Query",
     "Timetable",

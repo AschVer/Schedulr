@@ -22,6 +22,7 @@ sys.path.insert(0, str(PLUGIN_DIR))
 from schedulr_core import (  # noqa: E402
     BitcError,
     fetch_timetable,
+    normalize_cookie,
     resolve_academic_year,
     resolve_term,
 )
@@ -48,7 +49,7 @@ async def _run(args: argparse.Namespace) -> int:
     semester_start = date.fromisoformat(args.start) if args.start else None
 
     try:
-        timetable = await fetch_timetable(
+        result = await fetch_timetable(
             cookie,
             academic_year=year,
             term=term,
@@ -60,6 +61,13 @@ async def _run(args: argparse.Namespace) -> int:
     except BitcError as error:
         print(f"失败：{error}", file=sys.stderr)
         return 1
+
+    timetable = result.timetable
+    if result.cookie and result.cookie != normalize_cookie(cookie):
+        print("Cookie 已自动续期。")
+        if args.cookie_out:
+            Path(args.cookie_out).write_text(result.cookie, encoding="utf-8")
+            print(f"新 Cookie 已写入：{args.cookie_out}")
 
     week = timetable.week_for(now.date())
     print("✅ 拉取成功")
@@ -84,6 +92,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="测试 BITC 课表拉取")
     parser.add_argument("--cookie", default="", help="WebVPN Cookie 请求头")
     parser.add_argument("--cookie-file", default="", help="从文件读取 Cookie")
+    parser.add_argument("--cookie-out", default="", help="把自动续期后的 Cookie 写入文件")
     parser.add_argument("--year", default="", help="学年，如 2026-2027；留空自动")
     parser.add_argument("--term", type=int, default=0, help="学期 1/2/3；0 自动")
     parser.add_argument("--start", default="", help="开学日期 YYYY-MM-DD")

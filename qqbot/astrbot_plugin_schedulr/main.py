@@ -271,7 +271,7 @@ class SchedulrPlugin(Star):
                     profile.settings.academic_year, now
                 )
                 term = resolve_term(profile.settings.term, now)
-                timetable = await fetch_timetable(
+                result = await fetch_timetable(
                     profile.settings.cookie,
                     academic_year=academic_year,
                     term=term,
@@ -280,6 +280,14 @@ class SchedulrPlugin(Star):
                     teaching_weeks=settings.teaching_weeks,
                     timeout=settings.timeout,
                 )
+                timetable = result.timetable
+                if result.cookie and result.cookie != profile.settings.cookie:
+                    profile.settings.cookie = result.cookie
+                    self._persist_cookie(profile.settings.index, result.cookie)
+                    logger.info(
+                        "[Schedulr] %s 的 WebVPN Cookie 已自动续期",
+                        profile.settings.name,
+                    )
                 profile.timetable = timetable
                 profile.last_success = now
                 profile.last_error = None
@@ -416,6 +424,17 @@ class SchedulrPlugin(Star):
                 if text.startswith(alias + " "):
                     return profile.index, text[len(alias) :].strip()
         return None, text
+
+    def _persist_cookie(self, index: int, cookie: str) -> None:
+        try:
+            self.config[f"profile_{index}_cookie"] = cookie
+            save = getattr(self.config, "save_config", None)
+            if callable(save):
+                save()
+        except Exception:
+            logger.warning(
+                "[Schedulr] profile_%s 的续期 Cookie 未能写回配置", index
+            )
 
     def _apply_settings(self, settings: AppSettings) -> AppSettings:
         for profile in settings.profiles:

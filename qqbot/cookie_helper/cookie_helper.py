@@ -9,6 +9,7 @@ Cookie 只在本机内存、剪贴板和 %USERPROFILE%\\SchedulrBot 下保存。
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import shutil
 import sys
@@ -83,6 +84,31 @@ def merge_cookie_header(cookies: list[dict]) -> str:
     return "; ".join(f"{name}={value}" for name, value in sorted(merged.items()))
 
 
+def webvpn_account(cookie: str) -> tuple[str | None, datetime | None]:
+    """Read the account id and expiry from the ``_webvpn_key`` JWT."""
+
+    token = ""
+    for part in cookie.split(";"):
+        part = part.strip()
+        if part.startswith("_webvpn_key="):
+            token = part.split("=", 1)[1]
+            break
+    if not token or token.count(".") < 2:
+        return None, None
+    payload = token.split(".")[1]
+    payload += "=" * (-len(payload) % 4)
+    try:
+        data = json.loads(base64.urlsafe_b64decode(payload))
+    except Exception:
+        return None, None
+    account = data.get("user")
+    exp = data.get("exp")
+    expires_at = (
+        datetime.fromtimestamp(int(exp), TZ) if isinstance(exp, (int, float)) else None
+    )
+    return (str(account) if account else None, expires_at)
+
+
 class BrowserSession:
     def __init__(self) -> None:
         self.driver: webdriver.Chrome | None = None
@@ -143,6 +169,7 @@ class CookieApp:
 
         self.sessions = {index: BrowserSession() for index in ACCOUNTS}
         self.cookies: dict[int, str] = {1: "", 2: ""}
+        self.accounts: dict[int, str | None] = {1: None, 2: None}
         self.status_labels: dict[int, ttk.Label] = {}
         self.buttons: list[ttk.Button] = []
         self._copy_buttons: dict[int, ttk.Button] = {}
@@ -284,13 +311,28 @@ class CookieApp:
                 cookie, current_url = self.sessions[index].collect()
                 if not cookie:
                     raise RuntimeError("没有拿到 bitc.edu.cn 的 Cookie，请确认已登录")
+                account, _expires_at = webvpn_account(cookie)
+                if (
+                    index == 2
+                    and account is not None
+                    and account == self.accounts.get(1)
+                ):
+                    raise RuntimeError(
+                        f"这个 Cookie 还是账号 {account}，不是第二个账号。"
+                        "请先退出登录/换账号，再重新提取。"
+                    )
+                self.accounts[index] = account
+                summary, refreshed = self._validate(cookie)
+                if refreshed and refreshed != cookie:
+                    cookie = refreshed
+                    self._append_log("Cookie 已自动续期")
                 self.cookies[index] = cookie
-                summary = self._validate(cookie)
                 self._save(index, cookie)
+                label = f"账号 {account} · " if account else ""
                 self.root.after(
                     0,
                     lambda: self._set_status(
-                        index, f"✅ 验证成功：{summary}", "#047857"
+                        index, f"✅ {label}验证成功：{summary}", "#047857"
                     ),
                 )
                 self.root.after(0, lambda: self._on_cookie_ready(index, summary))
@@ -305,14 +347,14 @@ class CookieApp:
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _validate(self, cookie: str) -> str:
+    def _validate(self, cookie: str) -> tuple[str, str]:
         if not CORE_AVAILABLE:
-            return "已提取（未找到插件核心，跳过接口验证）"
+            return "已提取（未找到插件核心，跳过接口验证）", cookie
         now = datetime.now(TZ)
         year = resolve_academic_year("", now)
         term = resolve_term(0, now)
         try:
-            timetable = asyncio.run(
+            result = asyncio.run(
                 fetch_timetable(
                     cookie,
                     academic_year=year,
@@ -323,9 +365,10 @@ class CookieApp:
             )
         except BitcError as error:
             raise RuntimeError(str(error)) from error
+        timetable = result.timetable
         week = timetable.week_for(now.date())
         suffix = f"，第 {week} 周" if week and week > 0 else ""
-        return f"{len(timetable.courses)} 节课程{suffix}"
+        return f"{len(timetable.courses)} 节课程{suffix}", result.cookie
 
     def _on_cookie_ready(self, index: int, summary: str) -> None:
         self._copy_buttons[index].configure(state="normal")
