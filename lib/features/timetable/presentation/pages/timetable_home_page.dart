@@ -459,7 +459,12 @@ class _TimetableTitleButton extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('课程表'),
+                Text(
+                  '课程表',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -467,7 +472,8 @@ class _TimetableTitleButton extends StatelessWidget {
                     key: const ValueKey('current-timetable-name'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
                 const SizedBox(width: 2),
@@ -531,48 +537,63 @@ class _WeekSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final start = dateForTeachingWeekday(semester, week, DateTime.monday);
     final end = dateForTeachingWeekday(semester, week, DateTime.sunday);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: '上一周',
-            onPressed: onPrevious,
-            icon: const Icon(Icons.chevron_left_rounded),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
           ),
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: onToday,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(
-                  children: [
-                    Text(
-                      followsToday ? '第 $week 周 · 今天' : '第 $week 周',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Text(
-                      followsToday
-                          ? '${start.month}/${start.day} - ${end.month}/${end.day} · ${semester.name}'
-                          : '${start.month}/${start.day} - ${end.month}/${end.day} · 回到本周',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: '上一周',
+              onPressed: onPrevious,
+              icon: const Icon(Icons.chevron_left_rounded),
+            ),
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: onToday,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Column(
+                    children: [
+                      Text(
+                        followsToday ? '第 $week 周 · 今天' : '第 $week 周',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        followsToday
+                            ? '${start.month}/${start.day} - ${end.month}/${end.day} · ${semester.name}'
+                            : '${start.month}/${start.day} - ${end.month}/${end.day} · 回到本周',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          IconButton(
-            tooltip: '下一周',
-            onPressed: onNext,
-            icon: const Icon(Icons.chevron_right_rounded),
-          ),
-        ],
+            IconButton(
+              tooltip: '下一周',
+              onPressed: onNext,
+              icon: const Icon(Icons.chevron_right_rounded),
+            ),
+          ],
+        ),
       ),
     );
   }

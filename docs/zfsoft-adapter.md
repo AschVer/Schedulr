@@ -61,6 +61,7 @@ integrations/zfsoft/
 - 请求参数为 `xnm`、正方学期代码 `xqm`、`kzlx=ck` 和空 `xsdm`。
 - App 使用域名受限的 WebView 建立校方会话，密码不进入 Flutter 层。
 - WebView 在发送课表给 Flutter 前执行字段白名单，只保留课程解析必需信息，以及 `rqazcList` 中的 `rq`、`xqj`、`zc` 和 primitive `zs`。
+- 学校 WebVPN 子域偶尔会以 HTTP 200 返回「站点访问异常 / 权限表不同步 / site ... not found」错误页。该页会回显课表 URL，因此不能按 URL 判断是否为正常课表页；App 读取页面正文识别该错误，并先经 `vpn.bitc.edu.cn` 门户重建会话后再打开教务子域。自动恢复仍失败时，登录页会提供「清理登录态并重新登录」入口；清理使用整库 Cookie 清除，确保 `.bitc.edu.cn` 域 Cookie 不会残留。
 - WebView 从原始 `kbList` 内部提取校区 `xqh_id`/`xqmc`，但只向 Flutter 暴露 `profile-0` 等安全 profile ID；课程通过 `timingProfileId` 关联 profile。
 - 每个校区分别 POST `/kbcx/xskbcx_cxRsd.html?gnmkdm=N2151` 与 `/kbcx/xskbcx_cxRjc.html?gnmkdm=N2151`，请求至少包含 `xnm`、`xqm`、`xqh_id`。
 - Flutter 只接收正规化 `timingProfiles`，不接收 `xsxx`、学号、学生姓名、`queryModel`、`userModel` 或 Cookie；课程教师字段 `xm` 保留。

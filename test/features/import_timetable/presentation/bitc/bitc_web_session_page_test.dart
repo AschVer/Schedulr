@@ -2,6 +2,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:schedulr/features/import_timetable/presentation/bitc/bitc_web_session_page.dart';
 
 void main() {
+  group('BITC 网关错误页识别', () {
+    test('识别截图中的“权限表不同步”错误页', () {
+      const text =
+          '站点访问异常，请稍候...\n'
+          '权限表不同步，请您清理cookie后重试\n'
+          '具体原因:site jwxt.vpn.bitc.edu.cn not found\n'
+          '站点\n'
+          'url:https://jwxt.vpn.bitc.edu.cn/kbcx/'
+          'xskbcx_cxXskbcxIndex.html?gnmkdm=N2151&layout=default';
+
+      expect(isBitcGatewayErrorText(text), isTrue);
+    });
+
+    test('错误页回显 xskbcx URL 时仍然判定为网关错误', () {
+      const text =
+          '具体原因:site jwxt.vpn.bitc.edu.cn not found\n'
+          'url:https://jwxt.vpn.bitc.edu.cn/kbcx/xskbcx_cxXskbcxIndex.html';
+
+      expect(isBitcGatewayErrorText(text), isTrue);
+    });
+
+    test('没有整句错误标记时不误判正常课表页', () {
+      const text =
+          '个人课表查询 2026-2027 学年第一学期 '
+          '课程 高等数学 周一 第1-2节 教一楼 101 '
+          'site map 仅供参考 not found in legend';
+
+      expect(isBitcGatewayErrorText(text), isFalse);
+    });
+
+    test('空页面不误判', () {
+      expect(isBitcGatewayErrorText(''), isFalse);
+      expect(isBitcGatewayErrorText('   '), isFalse);
+    });
+  });
+
   test('BITC 账号预填脚本只写账号且不读取密码或回传字段', () {
     final script = buildBitcAccountPrefillScript('student-001');
 

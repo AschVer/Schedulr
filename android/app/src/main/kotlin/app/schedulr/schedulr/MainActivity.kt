@@ -26,8 +26,7 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                     "clearCookies" -> {
-                        clearCookies()
-                        result.success(null)
+                        clearCookies { result.success(null) }
                     }
                     else -> result.notImplemented()
                 }
@@ -69,17 +68,16 @@ class MainActivity : FlutterActivity() {
         manager.flush()
     }
 
-    private fun clearCookies() {
+    private fun clearCookies(onCleared: () -> Unit) {
+        // Per-host expiry leaves domain cookies (e.g. .bitc.edu.cn) behind,
+        // which is exactly the stale state that makes the web-VPN report
+        // "权限表不同步". The WebView only ever browses BITC, so clearing the
+        // whole cookie store is both safer and more reliable.
         val manager = CookieManager.getInstance()
-        val hosts = listOf("https://vpn.bitc.edu.cn/", "https://jwxt.vpn.bitc.edu.cn/")
-        for (host in hosts) {
-            val header = manager.getCookie(host) ?: continue
-            for (part in header.split(";")) {
-                val name = part.trim().substringBefore("=").trim()
-                if (name.isNotEmpty()) manager.setCookie(host, "$name=; Max-Age=0; Path=/")
-            }
+        manager.removeAllCookies {
+            manager.flush()
+            onCleared()
         }
-        manager.flush()
     }
 
     private fun domainToUrl(domain: String): String = "https://$domain/"

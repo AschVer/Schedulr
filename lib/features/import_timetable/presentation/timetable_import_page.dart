@@ -372,6 +372,12 @@ class _TimetableImportPageState extends State<TimetableImportPage> {
               onClearSession: () async {
                 await (widget.clearWebViewCookies ??
                     WebViewCookieManager().clearCookies)();
+                try {
+                  await widget.secureSessionStore
+                      .clearCurrentWebSessionAccount();
+                } on Object {
+                  // A failed marker cleanup must not keep stale cookies around.
+                }
                 if (account.isNotEmpty) {
                   await widget.bitcCookieStore?.clearBrowserSession();
                   try {
