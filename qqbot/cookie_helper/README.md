@@ -4,8 +4,9 @@
 
 ## 用法
 
-1. 双击 `启动.bat`。第一次会自动装 Selenium，等一两分钟。
-2. 在「账号 1 · 一班」点「打开登录页」。
+1. 双击 `start.bat`（或 `启动.bat`），直接使用你本机的 Python，不会创建虚拟环境。
+2. 只有本机没装 Selenium 时才会自动 `pip install selenium`，只需一次。
+3. 在「账号 1 · 一班」点「打开登录页」。
 3. 在弹出的 Chrome 里完成学校登录：账号 + 验证码 + 手机/微信动态密码。
 4. 看到学校 VPN 门户后，回到小工具点「提取并验证」。
 5. 成功会显示「✅ 验证成功：N 节课程」，Cookie 自动复制到剪贴板。
@@ -38,4 +39,4 @@
 - Windows
 - Python 3.10+（`python` 在 PATH 里）
 - Google Chrome
-- `selenium`（`启动.bat` 会自动装到 `.venv`）
+- `selenium`（已有就直接用，没有 `start.bat` 会装一次）
