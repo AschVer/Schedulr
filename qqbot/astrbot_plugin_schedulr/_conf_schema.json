@@ -1,0 +1,95 @@
+{
+  "profile_1_name": {
+    "description": "课表 1 名称",
+    "type": "string",
+    "default": "一班",
+    "hint": "用于区分两版课表，例如 一班 / 二班，或直接写班级名。"
+  },
+  "profile_1_cookie": {
+    "description": "课表 1 · BITC WebVPN Cookie",
+    "type": "string",
+    "default": "",
+    "secret": true,
+    "obvious_hint": true,
+    "hint": "用第一个账号登录 https://vpn.bitc.edu.cn/ 后，从开发者工具 Network 里复制发往 jwxt.vpn.bitc.edu.cn 的 Cookie 请求头。"
+  },
+  "profile_1_academic_year": {
+    "description": "课表 1 · 学年",
+    "type": "string",
+    "default": "",
+    "hint": "格式 2026-2027；留空按当前日期自动推断。"
+  },
+  "profile_1_term": {
+    "description": "课表 1 · 学期",
+    "type": "int",
+    "default": 0,
+    "hint": "0 自动；1 第一学期；2 第二学期；3 第三学期。"
+  },
+  "profile_1_semester_start": {
+    "description": "课表 1 · 开学日期",
+    "type": "string",
+    "default": "",
+    "hint": "格式 YYYY-MM-DD，留空使用教务校历锚点推算。"
+  },
+  "profile_2_name": {
+    "description": "课表 2 名称",
+    "type": "string",
+    "default": "二班",
+    "hint": "用于区分两版课表。"
+  },
+  "profile_2_cookie": {
+    "description": "课表 2 · BITC WebVPN Cookie",
+    "type": "string",
+    "default": "",
+    "secret": true,
+    "obvious_hint": true,
+    "hint": "用第二个账号登录 WebVPN 后复制 Cookie。两个账号需要分别登录、分别复制。"
+  },
+  "profile_2_academic_year": {
+    "description": "课表 2 · 学年",
+    "type": "string",
+    "default": "",
+    "hint": "格式 2026-2027；留空自动。"
+  },
+  "profile_2_term": {
+    "description": "课表 2 · 学期",
+    "type": "int",
+    "default": 0,
+    "hint": "0 自动；1 第一学期；2 第二学期；3 第三学期。"
+  },
+  "profile_2_semester_start": {
+    "description": "课表 2 · 开学日期",
+    "type": "string",
+    "default": "",
+    "hint": "格式 YYYY-MM-DD；留空自动。"
+  },
+  "teaching_weeks": {
+    "description": "教学周数",
+    "type": "int",
+    "default": 18,
+    "hint": "用于判断当前周和假期，默认 18 周。"
+  },
+  "refresh_minutes": {
+    "description": "自动刷新间隔（分钟）",
+    "type": "int",
+    "default": 10,
+    "hint": "两个档案分别刷新，建议 10-30 分钟，最小 5 分钟。"
+  },
+  "query_refresh_minutes": {
+    "description": "查询时允许的最大缓存时间（分钟）",
+    "type": "int",
+    "default": 30,
+    "hint": "超过这个时间后，下一次查询会先尝试刷新再回答。"
+  },
+  "timeout": {
+    "description": "单次请求超时（秒）",
+    "type": "int",
+    "default": 20,
+    "hint": "学校 VPN 较慢时可调大。"
+  },
+  "show_footer": {
+    "description": "在回答末尾显示数据更新时间",
+    "type": "bool",
+    "default": true
+  }
+}

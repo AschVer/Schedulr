@@ -1,0 +1,67 @@
+"""Schedulr timetable core for the AstrBot QQ plugin."""
+
+from .bitc_client import (
+    BitcAuthError,
+    BitcError,
+    BitcGatewayError,
+    BitcProtocolError,
+    fetch_timetable,
+    normalize_cookie,
+)
+from .models import (
+    Course,
+    PeriodTime,
+    Timetable,
+    WEEKDAY_FULL,
+    WEEKDAY_SHORT,
+    next_course,
+)
+from .parser import (
+    TimetableParseError,
+    build_timetable,
+    infer_start_date,
+    parse_period_range,
+    parse_weeks,
+    resolve_academic_year,
+    resolve_term,
+    term_code,
+    term_label,
+)
+from .query import (
+    Query,
+    help_text,
+    parse_query,
+    render_answer,
+    render_status,
+)
+from .store import TimetableStore
+
+__all__ = [
+    "BitcAuthError",
+    "BitcError",
+    "BitcGatewayError",
+    "BitcProtocolError",
+    "Course",
+    "PeriodTime",
+    "Query",
+    "Timetable",
+    "TimetableParseError",
+    "TimetableStore",
+    "WEEKDAY_FULL",
+    "WEEKDAY_SHORT",
+    "build_timetable",
+    "fetch_timetable",
+    "help_text",
+    "infer_start_date",
+    "next_course",
+    "normalize_cookie",
+    "parse_period_range",
+    "parse_query",
+    "parse_weeks",
+    "render_answer",
+    "render_status",
+    "resolve_academic_year",
+    "resolve_term",
+    "term_code",
+    "term_label",
+]

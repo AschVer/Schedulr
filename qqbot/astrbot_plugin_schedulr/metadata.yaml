@@ -1,0 +1,15 @@
+name: astrbot_plugin_schedulr
+display_name: Schedulr 课程表
+short_desc: 在 QQ 里查询北信职课表，自动刷新
+desc: |
+  查询北京信息职业技术学院正方课表，支持两个班级/两个账号各自独立的课表。
+
+  插件为每个档案保存一份学校 WebVPN Cookie，定时从教务拉取最新课表并缓存；
+  支持今天、明天、本周、下周、指定周次和下一节课查询。
+  不保存学校密码，也不保存学号姓名等身份字段。
+
+  使用前需要在插件配置中分别填入两个账号的 WebVPN Cookie。
+version: 1.0.0
+author: AschVer
+repo: https://github.com/AschVer/Schedulr
+astrbot_version: ">=4.16"
