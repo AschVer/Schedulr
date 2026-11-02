@@ -89,6 +89,14 @@ jobs:
           echo "--- update.json ---"
           cat update.json
 
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schedulr-apk
+          path: Schedulr-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Publish to latest release
         env:
           GH_TOKEN: ${{ github.token }}
