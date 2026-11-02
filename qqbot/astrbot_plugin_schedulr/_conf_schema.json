@@ -91,5 +91,23 @@
     "description": "在回答末尾显示数据更新时间",
     "type": "bool",
     "default": true
+  },
+  "bind_ttl_minutes": {
+    "description": "绑定口令有效期（分钟）",
+    "type": "int",
+    "default": 60,
+    "hint": "在 App 里生成的口令超过这个时间就不能再用了，需要重新生成。"
+  },
+  "bind_private_only": {
+    "description": "只允许在私聊里绑定",
+    "type": "bool",
+    "default": true,
+    "hint": "开启后群聊里的绑定口令会被拒绝，避免学校登录态出现在群里。"
+  },
+  "bind_allowed_senders": {
+    "description": "允许绑定的 QQ 号（留空=不限）",
+    "type": "string",
+    "default": "",
+    "hint": "多个号用逗号或空格分隔。留空表示任何私聊用户都可以绑定。"
   }
 }

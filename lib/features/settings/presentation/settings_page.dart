@@ -10,6 +10,7 @@ class SettingsPage extends StatelessWidget {
     required this.onClearAllData,
     required this.onRefreshWidget,
     required this.onCheckUpdate,
+    required this.onSyncRobot,
     required this.savedAccountCount,
     super.key,
   });
@@ -20,6 +21,7 @@ class SettingsPage extends StatelessWidget {
   final Future<void> Function() onClearAllData;
   final Future<void> Function() onRefreshWidget;
   final Future<void> Function() onCheckUpdate;
+  final VoidCallback onSyncRobot;
   final int savedAccountCount;
 
   @override
@@ -37,13 +39,21 @@ class SettingsPage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: onEditSemester,
           ),
+          const _SectionHeader('QQ 机器人'),
+          ListTile(
+            key: const ValueKey('sync-robot-session'),
+            leading: const Icon(Icons.smart_toy_outlined),
+            title: const Text('同步登录状态到机器人'),
+            subtitle: const Text('生成一次性口令，私聊发给机器人，让它取到最新课表。'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: onSyncRobot,
+          ),
           const _SectionHeader('隐私与数据'),
           const ListTile(
             leading: Icon(Icons.offline_bolt_outlined),
             title: Text('纯本地数据'),
             subtitle: Text('课程、学期和设置仅保存在本设备，不使用云端账号。'),
-          ),
-          ListTile(
+          ),          ListTile(
             leading: const Icon(Icons.logout_rounded),
             title: const Text('退出教务网页登录'),
             subtitle: const Text('清除学校 WebView Cookie；保留已保存账号和课程。'),

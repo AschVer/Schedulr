@@ -9,6 +9,7 @@ import '../../../app_update/presentation/update_dialog.dart';
 import '../../../desktop_widget/widget_providers.dart';
 import '../../../desktop_widget/widget_publisher.dart';
 import '../../../import_timetable/data/providers.dart' as import_providers;
+import '../../../qqbot/presentation/qqbot_bind_sheet.dart';
 import '../../../timetable/data/providers.dart';
 import '../settings_page.dart';
 
@@ -56,6 +57,10 @@ class SettingsRoutePage extends ConsumerWidget {
           showUpToDate: true,
         );
       },
+      onSyncRobot: () => showQqBotBindSheet(
+        context,
+        cookieStore: ref.read(import_providers.bitcCookieStoreProvider),
+      ),
       onClearAllData: () async {
         final confirmed = await showAdaptiveConfirmationDialog(
           context,

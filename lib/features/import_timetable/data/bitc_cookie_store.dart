@@ -97,6 +97,19 @@ final class BitcCookieStore {
     );
   }
 
+  /// Reads the live WebView cookies for BITC domains without persisting them.
+  ///
+  /// Used when handing the session to another device (the QQ bot). Returns an
+  /// empty list when the native bridge is unavailable, which is the normal
+  /// state in widget tests and on hosts without the WebView cookie store.
+  Future<List<Map<String, Object?>>> readBrowserCookies() async {
+    try {
+      return _sanitize(await _platform.readCookies());
+    } on Object {
+      return const [];
+    }
+  }
+
   Future<void> delete(String accountId) =>
       _secureStore.delete(_recordKey(accountId));
 

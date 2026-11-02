@@ -3,11 +3,15 @@
 Each timetable profile keeps its own school WebVPN session (cookie) and
 refreshes independently. Passwords are never read or stored here, and student
 identity fields from the school response are discarded.
+
+The Schedulr app can hand its own WebVPN session over with a one-shot bind
+token; see ``schedulr_core/bind.py``.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import sys
 from dataclasses import dataclass, field
@@ -25,11 +29,15 @@ if str(_PLUGIN_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGIN_DIR))
 
 from schedulr_core import (  # noqa: E402
+    BindError,
     BitcError,
+    TOKEN_PREFIX,
     Timetable,
     TimetableStore,
+    decode_bind_token,
     fetch_timetable,
     help_text,
+    looks_like_bind_token,
     normalize_cookie,
     parse_query,
     render_answer,
@@ -46,7 +54,11 @@ except Exception:  # pragma: no cover - Windows without tzdata
 
 PLUGIN_NAME = "astrbot_plugin_schedulr"
 CACHE_FILE = "timetable_{index}.json"
+BIND_NONCE_FILE = "bind_nonces.json"
 CHINESE_INDEX = {1: "一", 2: "二", 3: "三", 4: "四"}
+MAX_BOUND_NONCES = 200
+BIND_COMMANDS = ("绑定", "绑定课表", "bind", "同步")
+UNBIND_COMMANDS = ("解绑", "解绑课表", "unbind", "清除")
 
 
 @dataclass
@@ -67,6 +79,9 @@ class AppSettings:
     query_refresh_minutes: int
     timeout: int
     show_footer: bool
+    bind_ttl_minutes: int = 60
+    bind_private_only: bool = True
+    bind_allowed_senders: tuple[str, ...] = ()
 
 
 @dataclass
@@ -108,6 +123,7 @@ class SchedulrPlugin(Star):
         self._stopping = False
         self._task: asyncio.Task[Any] | None = None
         self._start_warning_logged = False
+        self._used_nonces: dict[str, float] = self._load_nonces()
 
     async def initialize(self) -> None:
         settings = self._apply_settings(self._settings())
@@ -143,6 +159,15 @@ class SchedulrPlugin(Star):
         query = parse_query(remainder)
         now = datetime.now(TZ)
         settings = self._apply_settings(self._settings())
+
+        action, argument = self._split_bind_action(remainder)
+        if action is not None:
+            yield event.plain_result(
+                await self._handle_bind_action(
+                    event, settings, action, argument, selector
+                )
+            )
+            return
 
         if query.kind == "help" and selector is None:
             yield event.plain_result(help_text())
@@ -190,6 +215,181 @@ class SchedulrPlugin(Star):
     async def timetable_help(self, event: AstrMessageEvent):
         """查看课表插件的用法。"""
         yield event.plain_result(help_text())
+
+    # -------------------------------------------------------------------- bind
+
+    async def _handle_bind_action(
+        self,
+        event: AstrMessageEvent,
+        settings: AppSettings,
+        action: str,
+        argument: str,
+        selector: int | None,
+    ) -> str:
+        denied = self._bind_permission_error(event, settings)
+        if denied is not None:
+            return denied
+
+        argument = (argument or "").strip()
+        if action == "unbind":
+            target = selector or self._profile_from_alias(argument)
+            return self._unbind(target)
+
+        if not argument:
+            return (
+                "在 App 里打开「设置 → QQ 机器人 → 同步登录状态」，\n"
+                "生成口令后整条发给我，例如：\n"
+                "/课表 绑定 SCHEDULR1.……"
+            )
+        if not looks_like_bind_token(argument):
+            return "这不像 Schedulr 绑定口令（应以 SCHEDULR1. 开头）。"
+
+        try:
+            payload = decode_bind_token(
+                argument,
+                now=datetime.now(TZ),
+                max_age_seconds=settings.bind_ttl_minutes * 60,
+            )
+        except BindError as error:
+            return f"❌ 绑定失败：{error}"
+
+        profile = self.profiles.get(payload.profile)
+        if profile is None:
+            return f"❌ 绑定失败：没有第 {payload.profile} 个课表档案。"
+
+        if payload.nonce in self._used_nonces:
+            return "❌ 这个口令已经用过了，请在 App 里重新生成一个。"
+
+        previous = profile.settings.cookie
+        profile.settings.cookie = payload.cookie
+        profile.last_attempt = None
+        ok = await self._refresh(profile, settings, force=True)
+        if not ok:
+            profile.settings.cookie = previous
+            return (
+                f"❌ 这份登录状态没通过验证：{profile.last_error or '未知错误'}\n"
+                "在 App 里重新登录教务后，再生成一次口令。"
+            )
+
+        # _refresh only writes the config when the cookie was renewed, so a
+        # first-time bind with an unchanged value still needs an explicit save.
+        self._persist_cookie(profile.settings.index, profile.settings.cookie)
+        self._remember_nonce(payload.nonce)
+
+        timetable = profile.timetable
+        week = timetable.week_for(datetime.now(TZ).date()) if timetable else None
+        lines = [f"✅ 已绑定到【{profile.settings.name}】"]
+        if timetable is not None:
+            lines.append(
+                f"课程：{len(timetable.courses)} 节"
+                + (f"｜当前第 {week} 周" if week and week > 0 else "")
+            )
+            lines.append(f"数据时间：{timetable.fetched_at:%m-%d %H:%M}")
+        if previous and previous != profile.settings.cookie:
+            lines.append("（已覆盖该档案原来的登录状态）")
+        lines.append("之后 App 里重新登录后，再发一次新口令即可刷新。")
+        return "\n".join(lines)
+
+    def _unbind(self, index: int | None) -> str:
+        targets = (
+            [self.profiles[index]]
+            if index is not None and index in self.profiles
+            else list(self.profiles.values())
+        )
+        cleared: list[str] = []
+        for profile in targets:
+            if not profile.settings.cookie:
+                continue
+            profile.settings.cookie = ""
+            profile.last_error = None
+            self._persist_cookie(profile.settings.index, "")
+            cleared.append(profile.settings.name)
+        if not cleared:
+            return "这些档案本来就没有配置 Cookie。"
+        return "🧹 已清除 " + "、".join(cleared) + " 的 Cookie。\n已缓存的课表仍可查询。"
+
+    def _bind_permission_error(
+        self, event: AstrMessageEvent, settings: AppSettings
+    ) -> str | None:
+        if settings.bind_private_only and not self._is_private(event):
+            return "🔒 绑定口令只能在私聊里发送，避免学校登录态出现在群聊里。"
+        allowed = settings.bind_allowed_senders
+        if allowed:
+            sender = ""
+            try:
+                sender = str(event.get_sender_id() or "")
+            except Exception:  # pragma: no cover - defensive
+                sender = ""
+            if sender not in allowed:
+                return "🔒 你没有绑定课表的权限。"
+        return None
+
+    def _is_private(self, event: AstrMessageEvent) -> bool:
+        try:
+            return bool(event.is_private_chat())
+        except Exception:  # pragma: no cover - older AstrBot
+            return False
+
+    def _profile_from_alias(self, text: str) -> int | None:
+        value = (text or "").strip()
+        if not value:
+            return None
+        for profile in self._settings().profiles:
+            aliases = {
+                profile.name,
+                str(profile.index),
+                f"{profile.index}班",
+                f"{CHINESE_INDEX.get(profile.index, '')}班",
+            }
+            if value in aliases:
+                return profile.index
+        return None
+
+    def _split_bind_action(self, remainder: str) -> tuple[str | None, str]:
+        text = (remainder or "").strip()
+        for keyword in sorted(UNBIND_COMMANDS, key=len, reverse=True):
+            if text == keyword:
+                return "unbind", ""
+            if text.startswith(keyword):
+                return "unbind", text[len(keyword) :].strip()
+        for keyword in sorted(BIND_COMMANDS, key=len, reverse=True):
+            if text == keyword:
+                return "bind", ""
+            if text.startswith(keyword):
+                return "bind", text[len(keyword) :].strip()
+        return None, text
+
+    def _nonce_path(self) -> Path:
+        return self.data_dir / BIND_NONCE_FILE
+
+    def _load_nonces(self) -> dict[str, float]:
+        try:
+            raw = self._nonce_path().read_text(encoding="utf-8")
+            data = json.loads(raw)
+        except (OSError, ValueError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        now = datetime.now(TZ).timestamp()
+        return {
+            str(key): float(value)
+            for key, value in data.items()
+            if isinstance(value, (int, float)) and now - float(value) < 172800
+        }
+
+    def _remember_nonce(self, nonce: str) -> None:
+        self._used_nonces[nonce] = datetime.now(TZ).timestamp()
+        if len(self._used_nonces) > MAX_BOUND_NONCES:
+            keep = sorted(
+                self._used_nonces.items(), key=lambda item: item[1], reverse=True
+            )[:MAX_BOUND_NONCES]
+            self._used_nonces = dict(keep)
+        try:
+            self._nonce_path().write_text(
+                json.dumps(self._used_nonces, indent=0), encoding="utf-8"
+            )
+        except OSError:
+            logger.warning("[Schedulr] 无法写入绑定口令防重放文件")
 
     # ------------------------------------------------------------------ refresh
 
@@ -481,6 +681,24 @@ class SchedulrPlugin(Star):
                 semester_start=semester_start,
             )
 
+        def as_bool(key: str, default: bool) -> bool:
+            value = self.config.get(key, default)
+            if isinstance(value, str):
+                return value.strip().lower() not in ("", "0", "false", "no")
+            return bool(value)
+
+        raw_allowed = self.config.get("bind_allowed_senders", "") or ""
+        if isinstance(raw_allowed, (list, tuple)):
+            allowed = tuple(
+                str(item).strip() for item in raw_allowed if str(item).strip()
+            )
+        else:
+            allowed = tuple(
+                part
+                for part in re.split(r"[\s,，;；]+", str(raw_allowed))
+                if part
+            )
+
         return AppSettings(
             profiles=[profile(1), profile(2)],
             teaching_weeks=as_int("teaching_weeks", 18, 1, 30),
@@ -489,5 +707,8 @@ class SchedulrPlugin(Star):
                 "query_refresh_minutes", 30, 5, 180
             ),
             timeout=as_int("timeout", 20, 5, 60),
-            show_footer=bool(self.config.get("show_footer", True)),
+            show_footer=as_bool("show_footer", True),
+            bind_ttl_minutes=as_int("bind_ttl_minutes", 60, 1, 1440),
+            bind_private_only=as_bool("bind_private_only", True),
+            bind_allowed_senders=allowed,
         )

@@ -74,7 +74,9 @@ void main() {
 
     expect(find.text('正方教务导入'), findsNothing);
     expect(find.text('北京信息职业技术学院'), findsNothing);
-    await tester.tap(find.text('删除全部本地数据'));
+    final deleteTile = find.text('删除全部本地数据');
+    await tester.scrollUntilVisible(deleteTile, 200);
+    await tester.tap(deleteTile);
     await tester.pumpAndSettle();
 
     expect(find.text('所有课程、学期和作息设置将被删除。完成后需要重新进行首次设置。'), findsOneWidget);

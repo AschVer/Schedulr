@@ -1,5 +1,13 @@
 """Schedulr timetable core for the AstrBot QQ plugin."""
 
+from .bind import (
+    BindError,
+    BindPayload,
+    TOKEN_PREFIX,
+    decode_bind_token,
+    encode_bind_token,
+    looks_like_bind_token,
+)
 from .bitc_client import (
     BitcAuthError,
     BitcError,
@@ -39,6 +47,8 @@ from .query import (
 from .store import TimetableStore
 
 __all__ = [
+    "BindError",
+    "BindPayload",
     "BitcAuthError",
     "BitcError",
     "BitcGatewayError",
@@ -51,12 +61,16 @@ __all__ = [
     "Timetable",
     "TimetableParseError",
     "TimetableStore",
+    "TOKEN_PREFIX",
     "WEEKDAY_FULL",
     "WEEKDAY_SHORT",
     "build_timetable",
+    "decode_bind_token",
+    "encode_bind_token",
     "fetch_timetable",
     "help_text",
     "infer_start_date",
+    "looks_like_bind_token",
     "next_course",
     "normalize_cookie",
     "parse_period_range",
